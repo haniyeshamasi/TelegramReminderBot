@@ -8,9 +8,11 @@ from flask import Flask
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
 
+
 load_dotenv()
 
 TOKEN = os.getenv("BOT_TOKEN")
+
 
 web_app = Flask(__name__)
 
@@ -30,44 +32,88 @@ async def add_lead_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     user_id = update.message.from_user.id
 
+    # پیدا کردن ایمیل
     email_match = re.search(
         r'[\w\.-]+@[\w\.-]+',
         text
     )
 
+    email = email_match.group() if email_match else "Not found"
+
+
+    # پیدا کردن شماره
     phone_match = re.search(
-        r'\(?\d{3}\)?[-\s]?\d{3}[-\s]?\d{4}',
+        r'(?:\(?\d{3}\)?[\s-]?)?\d{3}[\s-]?\d{4}',
         text
     )
 
-    email = email_match.group() if email_match else "Not found"
-    phone = phone_match.group() if phone_match else "Not found"
+    phone = (
+        phone_match.group()
+        .replace(" ", "")
+        .replace("-", "")
+        if phone_match else "Not found"
+    )
 
-    reminder = ""
 
-    if "tomorrow" in text.lower():
-        reminder = "Tomorrow"
+    # پیدا کردن وضعیت
+    if "POTENTIAL" in text.upper():
+        status = "POTENTIAL"
+    else:
+        status = "NEW"
+
+
+    # حدس شرکت (فعلاً چند کلمه اول)
+    parts = text.split()
+
+    company = " ".join(parts[:3]) if len(parts) >= 3 else text
+
+
+    # پیدا کردن اسم تماس
+    contact = "Unknown"
+
+    if "Ms." in parts:
+        index = parts.index("Ms.")
+
+        if index + 1 < len(parts):
+            contact = parts[index] + " " + parts[index + 1]
+
+    elif "Mr." in parts:
+        index = parts.index("Mr.")
+
+        if index + 1 < len(parts):
+            contact = parts[index] + " " + parts[index + 1]
+
+
+    note = text
+
 
     add_lead(
         user_id,
+        company,
+        contact,
         email,
         phone,
-        reminder,
-        text
+        status,
+        note
     )
 
+
     await update.message.reply_text(
-        f"✅ Lead saved\n\n"
-        f"📧 {email}\n"
-        f"📞 {phone}\n"
-        f"⏰ {reminder}"
+        f"✅ Lead Saved\n\n"
+        f"🏢 Company: {company}\n"
+        f"👤 Contact: {contact}\n"
+        f"📧 Email: {email}\n"
+        f"📞 Phone: {phone}\n"
+        f"📌 Status: {status}"
     )
 
 
 def run_bot():
+
     create_database()
 
     app = ApplicationBuilder().token(TOKEN).build()
+
 
     app.add_handler(
         MessageHandler(
@@ -76,9 +122,11 @@ def run_bot():
         )
     )
 
+
     print("Bot is running...")
 
     app.run_polling()
+
 
 
 threading.Thread(target=run_web).start()

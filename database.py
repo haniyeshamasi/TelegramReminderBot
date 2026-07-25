@@ -11,10 +11,12 @@ def create_database():
     CREATE TABLE IF NOT EXISTS leads (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
+        company TEXT,
+        contact TEXT,
         email TEXT,
         phone TEXT,
+        status TEXT,
         note TEXT,
-        status TEXT DEFAULT 'new',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """)
@@ -23,20 +25,24 @@ def create_database():
     conn.close()
 
 
-def add_lead(user_id, email, phone, reminder, raw_text):
+def add_lead(user_id, company, contact, email, phone, status, note):
+
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
     cursor.execute("""
     INSERT INTO leads
-    (user_id, email, phone, note)
-    VALUES (?, ?, ?, ?)
+    (user_id, company, contact, email, phone, status, note)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     """,
     (
         user_id,
+        company,
+        contact,
         email,
         phone,
-        reminder + "\n" + raw_text
+        status,
+        note
     ))
 
     conn.commit()
