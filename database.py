@@ -1,6 +1,6 @@
 import sqlite3
 
-DB_NAME = "reminders.db"
+DB_NAME = "leads.db"
 
 
 def create_database():
@@ -8,12 +8,14 @@ def create_database():
     cursor = conn.cursor()
 
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS reminders (
+    CREATE TABLE IF NOT EXISTS leads (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
-        message TEXT,
-        remind_time TEXT,
-        done INTEGER DEFAULT 0
+        email TEXT,
+        phone TEXT,
+        note TEXT,
+        status TEXT DEFAULT 'new',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """)
 
@@ -21,14 +23,21 @@ def create_database():
     conn.close()
 
 
-def add_reminder(user_id, message, remind_time):
+def add_lead(user_id, email, phone, reminder, raw_text):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
     cursor.execute("""
-    INSERT INTO reminders (user_id, message, remind_time)
-    VALUES (?, ?, ?)
-    """, (user_id, message, remind_time))
+    INSERT INTO leads
+    (user_id, email, phone, note)
+    VALUES (?, ?, ?, ?)
+    """,
+    (
+        user_id,
+        email,
+        phone,
+        reminder + "\n" + raw_text
+    ))
 
     conn.commit()
     conn.close()
