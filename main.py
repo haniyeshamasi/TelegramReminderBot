@@ -3,8 +3,8 @@ import os
 import logging
 import threading
 
-from datetime import datetime, timedelta
-
+from datetime import datetime, timedelta, time
+from reminder import send_reminders
 from dotenv import load_dotenv
 from flask import Flask
 
@@ -208,7 +208,7 @@ def extract_reminder(text):
                 found.append(match)
 
 
-    return ", ".join(found)
+    return found
 
 
 
@@ -225,6 +225,37 @@ def convert_reminder_to_date(reminder):
     today = datetime.now()
 
     reminder_lower = reminder.lower()
+
+
+    # Simple relative-day keywords
+    # (FIX: these were matched by extract_reminder but never
+    # handled here, so "tomorrow" / "today" / "tonight" /
+    # "next week" / "next month" / "next year" always produced
+    # an empty reminder_date.)
+
+    if "tomorrow" in reminder_lower:
+
+        return (today + timedelta(days=1)).strftime("%Y-%m-%d")
+
+
+    if "today" in reminder_lower or "tonight" in reminder_lower:
+
+        return today.strftime("%Y-%m-%d")
+
+
+    if "next week" in reminder_lower:
+
+        return (today + timedelta(weeks=1)).strftime("%Y-%m-%d")
+
+
+    if "next month" in reminder_lower:
+
+        return (today + timedelta(days=30)).strftime("%Y-%m-%d")
+
+
+    if "next year" in reminder_lower:
+
+        return (today + timedelta(days=365)).strftime("%Y-%m-%d")
 
 
     # in X days/weeks/months/years
@@ -408,12 +439,19 @@ def parse_lead(text):
 
     address = extract_address(text)
 
-    reminder = extract_reminder(text)
+    reminder_matches = extract_reminder(text)
+
+    reminder = ", ".join(reminder_matches)
 
     reminder_date = convert_reminder_to_date(
         reminder
     )
 
+
+    # FIX: previously passed the joined "a, b" string as a single
+    # removal item, which almost never matches a literal substring
+    # of the original text, so reminder phrases were left in the
+    # note. Now each matched phrase is removed individually.
 
     note = create_note(
         text,
@@ -422,7 +460,7 @@ def parse_lead(text):
             email,
             phone,
             address,
-            reminder
+            *reminder_matches
         ]
     )
 
@@ -510,7 +548,25 @@ def run_bot():
     create_database()
 
 
-    app = ApplicationBuilder().token(TOKEN).build()
+    app = (
+        ApplicationBuilder()
+        .token(TOKEN)
+        .build()
+    )
+
+
+    async def reminder_job(context):
+
+        await send_reminders()
+
+
+    app.job_queue.run_daily(
+        reminder_job,
+        time=time(
+            hour=9,
+            minute=0
+        )
+    )
 
 
     app.add_handler(
@@ -521,7 +577,13 @@ def run_bot():
     )
 
 
+    logger.info("Reminder system started")
     logger.info("Bot is running...")
+
+    # FIX: removed the duplicated logger.info(...) + app.run_polling()
+    # block that was pasted twice at the end of this function. Since
+    # run_polling() blocks, the second copy was dead code, but it's
+    # gone now for clarity.
 
     app.run_polling()
 
