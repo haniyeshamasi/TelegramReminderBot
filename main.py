@@ -19,7 +19,9 @@ from telegram.ext import (
 from database import create_database, add_lead
 
 
-# ── Logging ─────────────────────────────────────────────
+# ─────────────────────────────────────
+# Logging
+# ─────────────────────────────────────
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(message)s",
@@ -29,17 +31,21 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# ── Config ─────────────────────────────────────────────
+# ─────────────────────────────────────
+# Config
+# ─────────────────────────────────────
 
 load_dotenv()
 
 TOKEN = os.getenv("BOT_TOKEN")
 
 if not TOKEN:
-    raise EnvironmentError("BOT_TOKEN is missing")
+    raise EnvironmentError("BOT_TOKEN missing")
 
 
-# ── Flask Keep Alive ───────────────────────────────────
+# ─────────────────────────────────────
+# Flask keep alive (Render)
+# ─────────────────────────────────────
 
 web_app = Flask(__name__)
 
@@ -62,8 +68,10 @@ def run_web():
     )
 
 
-# ── Extractors ─────────────────────────────────────────
 
+# ─────────────────────────────────────
+# Extractors
+# ─────────────────────────────────────
 
 def extract_email(text):
 
@@ -73,7 +81,7 @@ def extract_email(text):
         re.IGNORECASE
     )
 
-    return match.group() if match else "Not found"
+    return match.group().strip() if match else "Not found"
 
 
 
@@ -84,7 +92,7 @@ def extract_phone(text):
         text
     )
 
-    return match.group() if match else "Not found"
+    return match.group().strip() if match else "Not found"
 
 
 
@@ -92,7 +100,7 @@ def extract_address(text):
 
     pattern = (
         r"\d{1,6}\s+"
-        r"[A-Za-z0-9\s\.]+"
+        r"[A-Za-z0-9\s\.\-]+"
         r"(?:St|Street|Rd|Road|Blvd|Boulevard|"
         r"Dr|Drive|Ave|Avenue|Way|Ln|Lane|"
         r"Ct|Court|Pl|Place|Pkwy|Parkway)"
@@ -125,7 +133,7 @@ def extract_company(text):
 
         parts = re.split(
             r"\s{2,}",
-            text
+            text.strip()
         )
 
         company = parts[0]
@@ -136,6 +144,7 @@ def extract_company(text):
         "",
         company
     )
+
 
     company = re.sub(
         r"[\w\.-]+@[\w\.-]+",
@@ -148,21 +157,27 @@ def extract_company(text):
 
 
 
-# ── Reminder Parser ────────────────────────────────────
-
+# ─────────────────────────────────────
+# Reminder extraction
+# ─────────────────────────────────────
 
 def extract_reminder(text):
 
     patterns = [
 
-        r'\bin\s+(?:a|an|\d+)\s+(?:minute|minutes|hour|hours|day|days|week|weeks|month|months|year|years)(?:\s+or\s+(?:two|three))?\b',
+        # Relative time
+        r'\bin\s+\d+\s+(?:minute|minutes|hour|hours|day|days|week|weeks|month|months|year|years)\b',
 
-        r'\bin\s+(?:a\s+)?(?:couple|few|several)\s+(?:of\s+)?(?:days|weeks|months|years)\b',
+        r'\bin\s+(?:a|an)\s+(?:day|week|month|year)\b',
 
         r'\b(?:tomorrow|today|tonight|next week|next month|next year)\b',
 
+
+        # Weekdays
         r'\b(?:next\s+)?(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b',
 
+
+        # Dates
         r'\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}\b',
 
         r'\b\d{1,2}[-/](?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\b',
@@ -197,6 +212,10 @@ def extract_reminder(text):
 
 
 
+# ─────────────────────────────────────
+# Convert reminder text to date
+# ─────────────────────────────────────
+
 def convert_reminder_to_date(reminder):
 
     if not reminder:
@@ -205,51 +224,101 @@ def convert_reminder_to_date(reminder):
 
     today = datetime.now()
 
-
-    days = {
-        "monday":0,
-        "tuesday":1,
-        "wednesday":2,
-        "thursday":3,
-        "friday":4,
-        "saturday":5,
-        "sunday":6
-    }
-
-
     reminder_lower = reminder.lower()
 
 
-    for day, number in days.items():
+    # in X days/weeks/months/years
+
+    relative = re.search(
+        r"in\s+(\d+)\s+(day|days|week|weeks|month|months|year|years)",
+        reminder_lower
+    )
+
+
+    if relative:
+
+        number = int(relative.group(1))
+
+        unit = relative.group(2)
+
+
+        if "day" in unit:
+
+            date = today + timedelta(days=number)
+
+
+        elif "week" in unit:
+
+            date = today + timedelta(weeks=number)
+
+
+        elif "month" in unit:
+
+            date = today + timedelta(days=number * 30)
+
+
+        else:
+
+            date = today + timedelta(days=number * 365)
+
+
+        return date.strftime("%Y-%m-%d")
+
+
+
+    # weekdays
+
+    days = {
+
+        "monday": 0,
+        "tuesday": 1,
+        "wednesday": 2,
+        "thursday": 3,
+        "friday": 4,
+        "saturday": 5,
+        "sunday": 6
+
+    }
+
+
+    for day, index in days.items():
 
         if day in reminder_lower:
 
-            diff = (number - today.weekday()) % 7
-
-            if diff == 0:
-                diff = 7
-
-
-            return (
-                today + timedelta(days=diff)
-            ).strftime("%Y-%m-%d")
+            difference = (
+                index - today.weekday()
+            ) % 7
 
 
+            if difference == 0:
+                difference = 7
+
+
+            date = today + timedelta(
+                days=difference
+            )
+
+
+            return date.strftime("%Y-%m-%d")
+
+
+
+    # Month + day
 
     months = {
 
-        "january":1,
-        "february":2,
-        "march":3,
-        "april":4,
-        "may":5,
-        "june":6,
-        "jul":7,
-        "august":8,
-        "september":9,
-        "october":10,
-        "november":11,
-        "december":12
+        "january": 1,
+        "february": 2,
+        "march": 3,
+        "april": 4,
+        "may": 5,
+        "june": 6,
+        "july": 7,
+        "august": 8,
+        "september": 9,
+        "october": 10,
+        "november": 11,
+        "december": 12
 
     }
 
@@ -259,7 +328,7 @@ def convert_reminder_to_date(reminder):
         if month in reminder_lower:
 
             day_match = re.search(
-                r'\d{1,2}',
+                r"\d{1,2}",
                 reminder
             )
 
@@ -269,11 +338,8 @@ def convert_reminder_to_date(reminder):
                 day = int(day_match.group())
 
 
-                year = today.year
-
-
                 date = datetime(
-                    year,
+                    today.year,
                     number,
                     day
                 )
@@ -282,7 +348,7 @@ def convert_reminder_to_date(reminder):
                 if date < today:
 
                     date = datetime(
-                        year + 1,
+                        today.year + 1,
                         number,
                         day
                     )
@@ -295,18 +361,16 @@ def convert_reminder_to_date(reminder):
 
 
 
-# ── Parser ─────────────────────────────────────────────
+# ─────────────────────────────────────
+# Parser
+# ─────────────────────────────────────
 
-
-def create_note(
-    text,
-    values
-):
+def create_note(text, remove_items):
 
     note = text
 
 
-    for item in values:
+    for item in remove_items:
 
         if item and item != "Not found":
 
@@ -316,11 +380,21 @@ def create_note(
             )
 
 
-    return re.sub(
+    note = re.sub(
+        r"[ \t]{2,}",
+        " ",
+        note
+    )
+
+
+    note = re.sub(
         r"\n{3,}",
         "\n\n",
         note
-    ).strip()
+    )
+
+
+    return note.strip()
 
 
 
@@ -355,20 +429,21 @@ def parse_lead(text):
 
     return {
 
-        "company":company,
-        "email":email,
-        "phone":phone,
-        "address":address,
-        "reminder":reminder,
-        "reminder_date":reminder_date,
-        "note":note
+        "company": company,
+        "email": email,
+        "phone": phone,
+        "address": address,
+        "reminder": reminder,
+        "reminder_date": reminder_date,
+        "note": note
 
     }
 
 
 
-# ── Telegram Handler ───────────────────────────────────
-
+# ─────────────────────────────────────
+# Telegram handler
+# ─────────────────────────────────────
 
 async def add_lead_message(
     update: Update,
@@ -426,34 +501,27 @@ async def add_lead_message(
 
 
 
-# ── Start ──────────────────────────────────────────────
-
+# ─────────────────────────────────────
+# Run
+# ─────────────────────────────────────
 
 def run_bot():
 
     create_database()
 
 
-    app = ApplicationBuilder()\
-        .token(TOKEN)\
-        .build()
+    app = ApplicationBuilder().token(TOKEN).build()
 
 
     app.add_handler(
-
         MessageHandler(
-
             filters.TEXT & ~filters.COMMAND,
-
             add_lead_message
-
         )
-
     )
 
 
     logger.info("Bot is running...")
-
 
     app.run_polling()
 
