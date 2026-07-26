@@ -1,6 +1,6 @@
 import sqlite3
 
-DB_NAME = "leads_v3.db"
+DB_NAME = "leads_v4.db"
 
 
 def create_database():
@@ -17,7 +17,7 @@ def create_database():
         email TEXT,
         phone TEXT,
         address TEXT,
-        status TEXT,
+        reminder TEXT,
         note TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
@@ -35,7 +35,7 @@ def add_lead(
     email,
     phone,
     address,
-    status,
+    reminder,
     note
 ):
 
@@ -51,7 +51,7 @@ def add_lead(
         email,
         phone,
         address,
-        status,
+        reminder,
         note
     )
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -63,7 +63,7 @@ def add_lead(
         email,
         phone,
         address,
-        status,
+        reminder,
         note
     ))
 
