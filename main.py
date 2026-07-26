@@ -37,7 +37,7 @@ if not TOKEN:
     raise EnvironmentError("BOT_TOKEN is not set")
 
 
-# ── Flask Keep Alive ────────────────────────────────────────────────────────
+# ── Flask Keep Alive ───────────────────────────────────────────────────────
 
 web_app = Flask(__name__)
 
@@ -47,13 +47,11 @@ def home():
     return "Bot is alive!"
 
 
-
 def run_web():
 
     port = int(os.environ.get("PORT", 10000))
 
-    log = logging.getLogger("werkzeug")
-    log.setLevel(logging.ERROR)
+    logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
     web_app.run(
         host="0.0.0.0",
@@ -61,8 +59,7 @@ def run_web():
     )
 
 
-
-# ── Extractors ──────────────────────────────────────────────────────────────
+# ── Extractors ─────────────────────────────────────────────────────────────
 
 
 def extract_email(text):
@@ -104,7 +101,6 @@ def extract_address(text):
         r"(?:,\s*[A-Za-z][A-Za-z\s]{1,25},\s*[A-Z]{2}\s*\d{5})?"
     )
 
-
     match = re.search(
         pattern,
         text,
@@ -119,38 +115,57 @@ def extract_reminder(text):
 
     patterns = [
 
-        r"follow[- ]?up[^\n]*",
+        # Relative time
+        r'\bin\s+(?:a|an|\d+)\s+(?:minute|minutes|hour|hours|day|days|week|weeks|month|months|year|years)(?:\s+or\s+(?:two|three))?\b',
 
-        r"call[- ]?back[^\n]*",
+        r'\bin\s+(?:a\s+)?(?:couple|few|several)\s+(?:of\s+)?(?:days|weeks|months|years)\b',
 
-        r"callback[^\n]*",
+        r'\b(?:tomorrow|today|tonight|next week|next month|next year)\b',
 
-        r"will call[^\n]*",
 
-        r"will contact[^\n]*",
+        # Days of week
+        r'\b(?:next\s+)?(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b',
 
-        r"will reach out[^\n]*",
+        r'\b(?:this\s+)?(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b',
 
-        r"call[^\n]*(?:on|at|in)[^\n]*",
 
-        r"contact[^\n]*(?:on|at|in)[^\n]*",
+        # Month + day
+        r'\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}\b',
+
+        r'\b\d{1,2}[-/](?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\b',
+
+        r'\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{1,2}\b',
+
+
+        # Time
+        r'\bat\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?\b',
 
     ]
 
 
+    found = []
+
+
     for pattern in patterns:
 
-        match = re.search(
+        matches = re.findall(
             pattern,
             text,
             re.IGNORECASE
         )
 
-        if match:
-            return match.group().strip()
+        for match in matches:
+
+            match = match.strip()
+
+            if match.lower() not in [
+                x.lower() for x in found
+            ]:
+
+                found.append(match)
 
 
-    return ""
+    return ", ".join(found)
 
 
 
@@ -159,13 +174,10 @@ def extract_company(text):
     lines = text.strip().split("\n")
 
 
-    # Multiline format
     if len(lines) > 1:
 
         company = lines[0].strip()
 
-
-    # Single line format
     else:
 
         parts = re.split(
@@ -174,7 +186,6 @@ def extract_company(text):
         )
 
         company = parts[0].strip()
-
 
 
     company = re.sub(
@@ -188,7 +199,6 @@ def extract_company(text):
         "",
         company
     )
-
 
     return company.strip(" ,") if company.strip() else "Not found"
 
@@ -240,7 +250,7 @@ def create_note(
 
 
 
-# ── Parser ──────────────────────────────────────────────────────────────────
+# ── Parser ─────────────────────────────────────────────────────────────────
 
 
 def parse_lead(text):
@@ -266,23 +276,17 @@ def parse_lead(text):
 
 
     return {
-
         "company": company,
-
         "email": email,
-
         "phone": phone,
-
         "address": address,
-
         "reminder": reminder,
-
         "note": note
     }
 
 
 
-# ── Telegram Handler ────────────────────────────────────────────────────────
+# ── Telegram Handler ───────────────────────────────────────────────────────
 
 
 async def add_lead_message(
@@ -302,17 +306,11 @@ async def add_lead_message(
 
         add_lead(
             user_id,
-
             data["company"],
-
             data["email"],
-
             data["phone"],
-
             data["address"],
-
             data["reminder"],
-
             data["note"]
         )
 
@@ -336,52 +334,36 @@ async def add_lead_message(
         )
 
 
-        logger.info(
-            "Lead saved: %s",
-            data["company"]
-        )
-
-
     except Exception as e:
 
         logger.exception(e)
 
-        reply = (
-            "❌ Error saving lead."
-        )
+        reply = "❌ Error saving lead."
 
 
     await update.message.reply_text(reply)
 
 
 
-# ── Bot Runner ───────────────────────────────────────────────────────────────
+# ── Run ────────────────────────────────────────────────────────────────────
 
 
 def run_bot():
 
     create_database()
 
-
-    app = ApplicationBuilder()\
-        .token(TOKEN)\
-        .build()
+    app = ApplicationBuilder().token(TOKEN).build()
 
 
     app.add_handler(
-
         MessageHandler(
             filters.TEXT & ~filters.COMMAND,
             add_lead_message
         )
-
     )
 
 
-    logger.info(
-        "Bot is running..."
-    )
-
+    logger.info("Bot is running...")
 
     app.run_polling()
 
@@ -393,6 +375,5 @@ if __name__ == "__main__":
         target=run_web,
         daemon=True
     ).start()
-
 
     run_bot()
