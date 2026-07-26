@@ -28,7 +28,7 @@ def run_web():
 
 
 async def add_lead_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
+    print("RECEIVED:", update.message.text)
     text = update.message.text
     user_id = update.message.from_user.id
 
