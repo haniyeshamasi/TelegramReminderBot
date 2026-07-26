@@ -5,6 +5,8 @@ from datetime import datetime
 
 from telegram import Bot
 
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
 
 DB_NAME = "leads.db"
 
@@ -106,7 +108,34 @@ async def send_reminders():
 """
 
 
-        await bot.send_message(
-            chat_id=user_id,
-            text=message
+        keyboard = [
+    [
+        InlineKeyboardButton(
+            "✅ Done",
+            callback_data=f"done_{lead_id}"
         )
+    ],
+    [
+        InlineKeyboardButton(
+            "⏰ Snooze",
+            callback_data=f"snooze_{lead_id}"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "📅 Change Date",
+            callback_data=f"date_{lead_id}"
+        )
+    ]
+]
+
+
+reply_markup = InlineKeyboardMarkup(keyboard)
+
+
+await bot.send_message(
+    chat_id=user_id,
+    text=message,
+    reply_markup=reply_markup
+)
+        

@@ -8,6 +8,8 @@ from datetime import datetime, timedelta, time
 from reminder import send_reminders
 from dotenv import load_dotenv
 from flask import Flask
+from telegram.ext import CallbackQueryHandler
+from database import mark_done
 
 from telegram import Update
 from telegram.ext import (
@@ -481,7 +483,7 @@ def parse_lead(text):
 
 
 # ─────────────────────────────────────
-# Telegram handler
+# Telegram handlers
 # ─────────────────────────────────────
 
 async def add_lead_message(
@@ -540,6 +542,35 @@ async def add_lead_message(
 
 
 
+# FIX: this function was previously defined *after* run_bot(), and
+# was accidentally nested so that `run_bot()` ended up as the last
+# line inside its body instead of under `if __name__ == "__main__":`.
+# That meant run_bot() was never actually called anywhere in the
+# file. Moved up here, alongside the other handler, with normal
+# top-level indentation.
+
+async def button_handler(update, context):
+
+    query = update.callback_query
+
+    await query.answer()
+
+    data = query.data
+
+
+    if data.startswith("done_"):
+
+        lead_id = data.split("_")[1]
+
+        mark_done(lead_id)
+
+
+        await query.edit_message_text(
+            "✅ Lead completed"
+        )
+
+
+
 # ─────────────────────────────────────
 # Run
 # ─────────────────────────────────────
@@ -562,13 +593,13 @@ def run_bot():
 
 
     app.job_queue.run_daily(
-    reminder_job,
-    time=time(
-        hour=9,
-        minute=0,
-        tzinfo=ZoneInfo("America/Los_Angeles")
+        reminder_job,
+        time=time(
+            hour=9,
+            minute=0,
+            tzinfo=ZoneInfo("America/Los_Angeles")
+        )
     )
-)
 
 
     app.add_handler(
@@ -578,14 +609,13 @@ def run_bot():
         )
     )
 
+    app.add_handler(
+        CallbackQueryHandler(button_handler)
+    )
+
 
     logger.info("Reminder system started")
     logger.info("Bot is running...")
-
-    # FIX: removed the duplicated logger.info(...) + app.run_polling()
-    # block that was pasted twice at the end of this function. Since
-    # run_polling() blocks, the second copy was dead code, but it's
-    # gone now for clarity.
 
     app.run_polling()
 
@@ -597,6 +627,5 @@ if __name__ == "__main__":
         target=run_web,
         daemon=True
     ).start()
-
 
     run_bot()
