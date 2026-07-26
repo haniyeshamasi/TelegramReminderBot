@@ -560,7 +560,7 @@ async def button_handler(update, context):
 
     if data.startswith("done_"):
 
-        lead_id = data.split("_")[1]
+        lead_id = int(data.split("_")[1])
 
         mark_done(lead_id)
 
