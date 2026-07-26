@@ -1,12 +1,11 @@
 import sqlite3
+import os
 
 
 DB_NAME = "leads.db"
 
 
-
 def get_connection():
-
     return sqlite3.connect(DB_NAME)
 
 
@@ -16,6 +15,12 @@ def get_connection():
 # ─────────────────────────────────────
 
 def create_database():
+
+    # Reset old broken database
+    # Remove this later after migration is complete
+    if os.path.exists(DB_NAME):
+        os.remove(DB_NAME)
+
 
     conn = get_connection()
 
@@ -49,41 +54,6 @@ def create_database():
         )
         """
     )
-
-
-    conn.commit()
-
-    conn.close()
-
-
-    add_completed_column()
-
-
-
-# ─────────────────────────────────────
-# Database Migration
-# ─────────────────────────────────────
-
-def add_completed_column():
-
-    conn = get_connection()
-
-    cursor = conn.cursor()
-
-
-    try:
-
-        cursor.execute(
-            """
-            ALTER TABLE leads
-            ADD COLUMN completed INTEGER DEFAULT 0
-            """
-        )
-
-    except sqlite3.OperationalError:
-
-        # Column already exists
-        pass
 
 
     conn.commit()
@@ -150,7 +120,7 @@ def add_lead(
 
 
 # ─────────────────────────────────────
-# Get Today's Reminders
+# Get Reminders
 # ─────────────────────────────────────
 
 def get_today_reminders(date):
@@ -163,6 +133,7 @@ def get_today_reminders(date):
     cursor.execute(
         """
         SELECT
+
             id,
             company,
             email,
@@ -176,6 +147,7 @@ def get_today_reminders(date):
         FROM leads
 
         WHERE reminder_date = ?
+
         AND completed = 0
 
         """,
@@ -183,18 +155,18 @@ def get_today_reminders(date):
     )
 
 
-    leads = cursor.fetchall()
+    results = cursor.fetchall()
 
 
     conn.close()
 
 
-    return leads
+    return results
 
 
 
 # ─────────────────────────────────────
-# Mark Lead Done
+# Mark Done
 # ─────────────────────────────────────
 
 def mark_done(lead_id):
@@ -241,44 +213,6 @@ def update_reminder_date(
         """
         UPDATE leads
 
-        SET 
-            reminder_date = ?,
-            completed = 0
-
-        WHERE id = ?
-
-        """,
-        (
-            new_date,
-            lead_id
-        )
-    )
-
-
-    conn.commit()
-
-    conn.close()
-
-
-
-# ─────────────────────────────────────
-# Snooze Lead
-# ─────────────────────────────────────
-
-def snooze_lead(
-    lead_id,
-    new_date
-):
-
-    conn = get_connection()
-
-    cursor = conn.cursor()
-
-
-    cursor.execute(
-        """
-        UPDATE leads
-
         SET
             reminder_date = ?,
             completed = 0
@@ -296,3 +230,19 @@ def snooze_lead(
     conn.commit()
 
     conn.close()
+
+
+
+# ─────────────────────────────────────
+# Snooze
+# ─────────────────────────────────────
+
+def snooze_lead(
+    lead_id,
+    new_date
+):
+
+    update_reminder_date(
+        lead_id,
+        new_date
+    )
