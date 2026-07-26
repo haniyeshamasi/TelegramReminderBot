@@ -1,12 +1,19 @@
 import re
-from database import add_lead, create_database
-from dotenv import load_dotenv
 import os
 import threading
 
+from dotenv import load_dotenv
 from flask import Flask
+
 from telegram import Update
-from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
+from telegram.ext import (
+    ApplicationBuilder,
+    MessageHandler,
+    ContextTypes,
+    filters
+)
+
+from database import create_database, add_lead
 
 
 load_dotenv()
@@ -24,88 +31,115 @@ def home():
 
 def run_web():
     port = int(os.environ.get("PORT", 10000))
-    web_app.run(host="0.0.0.0", port=port)
+    web_app.run(
+        host="0.0.0.0",
+        port=port
+    )
 
 
-async def add_lead_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print("RECEIVED:", update.message.text)
-    text = update.message.text
-    user_id = update.message.from_user.id
+def parse_lead(text):
 
-    # پیدا کردن ایمیل
     email_match = re.search(
         r'[\w\.-]+@[\w\.-]+',
         text
     )
 
-    email = email_match.group() if email_match else "Not found"
-
-
-    # پیدا کردن شماره
     phone_match = re.search(
-        r'(?:\(?\d{3}\)?[\s-]?)?\d{3}[\s-]?\d{4}',
-        text
+        r'\b\d{10}\b',
+        text.replace("-", "")
     )
 
-    phone = (
-        phone_match.group()
-        .replace(" ", "")
-        .replace("-", "")
-        if phone_match else "Not found"
+    address_match = re.search(
+        r'\d{1,5}\s+[A-Za-z0-9\s]+(?:St|Street|Blvd|Road|Rd|Ave|Avenue|Dr|Drive)[^,\n]*',
+        text,
+        re.I
     )
 
 
-    # پیدا کردن وضعیت
-    if "POTENTIAL" in text.upper():
-        status = "POTENTIAL"
-    else:
-        status = "NEW"
+    email = email_match.group() if email_match else ""
+
+    phone = phone_match.group() if phone_match else ""
+
+    address = address_match.group() if address_match else ""
 
 
-    # حدس شرکت (فعلاً چند کلمه اول)
-    parts = text.split()
-
-    company = " ".join(parts[:3]) if len(parts) >= 3 else text
-
-
-    # پیدا کردن اسم تماس
-    contact = "Unknown"
-
-    if "Ms." in parts:
-        index = parts.index("Ms.")
-
-        if index + 1 < len(parts):
-            contact = parts[index] + " " + parts[index + 1]
-
-    elif "Mr." in parts:
-        index = parts.index("Mr.")
-
-        if index + 1 < len(parts):
-            contact = parts[index] + " " + parts[index + 1]
+    # Extract company name (temporary simple method)
+    words = text.split()
+    company = " ".join(words[:3])
 
 
-    note = text
+    # Detect lead status
+    status = "NEW"
+
+    status_words = [
+        "potential",
+        "voicemail",
+        "follow up",
+        "call back",
+        "not interested",
+        "25-Sep",
+        "tomorrow"
+    ]
 
 
-    add_lead(
-        user_id,
-        company,
-        contact,
-        email,
-        phone,
-        status,
-        note
-    )
+    for item in status_words:
+        if item.lower() in text.lower():
+            status = item.upper()
+
+
+    return {
+        "company": company,
+        "contact": "Unknown",
+        "email": email,
+        "phone": phone,
+        "address": address,
+        "status": status,
+        "note": text
+    }
+
+
+
+async def add_lead_message(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    text = update.message.text
+
+    user_id = update.message.from_user.id
+
+
+    # Split multiple leads from one message
+    leads = text.split("\n\n")
+
+
+    saved = 0
+
+
+    for lead_text in leads:
+
+        data = parse_lead(lead_text)
+
+
+        add_lead(
+    user_id,
+    data["company"],
+    data["contact"],
+    data["email"],
+    data["phone"],
+    data["address"],
+    data["status"],
+    data["note"]
+)
+
+
+        saved += 1
 
 
     await update.message.reply_text(
-        f"✅ Lead Saved\n\n"
-        f"🏢 Company: {company}\n"
-        f"👤 Contact: {contact}\n"
-        f"📧 Email: {email}\n"
-        f"📞 Phone: {phone}\n"
-        f"📌 Status: {status}"
+        f"✅ {saved} Lead(s) Saved"
     )
+
 
 
 def run_bot():
@@ -129,6 +163,9 @@ def run_bot():
 
 
 
-threading.Thread(target=run_web).start()
+threading.Thread(
+    target=run_web
+).start()
+
 
 run_bot()

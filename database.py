@@ -4,6 +4,7 @@ DB_NAME = "leads_final.db"
 
 
 def create_database():
+
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
@@ -15,6 +16,7 @@ def create_database():
         contact TEXT,
         email TEXT,
         phone TEXT,
+        address TEXT,
         status TEXT,
         note TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -25,15 +27,34 @@ def create_database():
     conn.close()
 
 
-def add_lead(user_id, company, contact, email, phone, status, note):
+
+def add_lead(
+    user_id,
+    company,
+    contact,
+    email,
+    phone,
+    address,
+    status,
+    note
+):
 
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
     cursor.execute("""
     INSERT INTO leads
-    (user_id, company, contact, email, phone, status, note)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    (
+        user_id,
+        company,
+        contact,
+        email,
+        phone,
+        address,
+        status,
+        note
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """,
     (
         user_id,
@@ -41,6 +62,7 @@ def add_lead(user_id, company, contact, email, phone, status, note):
         contact,
         email,
         phone,
+        address,
         status,
         note
     ))
