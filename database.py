@@ -1,6 +1,6 @@
 import sqlite3
 
-DB_NAME = "leads_final.db"
+DB_NAME = "leads_v3.db"
 
 
 def create_database():
