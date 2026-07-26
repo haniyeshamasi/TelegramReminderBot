@@ -48,7 +48,7 @@ def extract_email(text):
         text
     )
 
-    return match.group() if match else ""
+    return match.group() if match else "Not found"
 
 
 
@@ -59,7 +59,7 @@ def extract_phone(text):
         text
     )
 
-    return match.group() if match else ""
+    return match.group() if match else "Not found"
 
 
 
@@ -67,13 +67,9 @@ def extract_reminder(text):
 
     patterns = [
 
-        r'follow[- ]?up\s+(?:in|after|at|on)?\s*.*',
-        
-        r'call\s+back\s+(?:in|after|at|on)?\s*.*',
+        r'(?:follow[- ]?up|call back|callback|call)\s+(?:in|after|at|on)?\s+.*',
 
-        r'callback\s+(?:in|after|at|on)?\s*.*',
-
-        r'call\s+(?:in|after|at|on)?\s*.*',
+        r'\b(?:tomorrow|next week|next month)\b'
 
     ]
 
@@ -99,30 +95,22 @@ def extract_company(text):
     lines = text.split("\n")
 
     if lines:
-        return lines[0][:100]
 
-    return ""
+        company = lines[0]
+
+        company = re.split(
+            r'\d{10}',
+            company
+        )[0]
+
+        return company.strip()
 
 
-
-def extract_contact(text):
-
-    names = re.findall(
-        r'\b[A-Z][a-z]+\s+[A-Z][a-z]+\b',
-        text
-    )
-
-    if names:
-        return names[-1]
-
-    return ""
+    return "Not found"
 
 
 
 def extract_address(text):
-
-    # Basic address extraction
-    # Can be improved later with state/city detection
 
     match = re.search(
         r'\d{1,6}\s+[A-Za-z0-9\s]+(?:St|Street|Rd|Road|Blvd|Drive|Dr|Ave|Avenue)[^,\n]*',
@@ -130,7 +118,7 @@ def extract_address(text):
         re.IGNORECASE
     )
 
-    return match.group() if match else ""
+    return match.group().strip() if match else "Not found"
 
 
 
@@ -151,21 +139,15 @@ def create_note(text, reminder):
 
 def parse_lead(text):
 
-    email = extract_email(text)
-
-    phone = extract_phone(text)
-
     reminder = extract_reminder(text)
 
     return {
 
         "company": extract_company(text),
 
-        "contact": extract_contact(text),
+        "email": extract_email(text),
 
-        "email": email,
-
-        "phone": phone,
+        "phone": extract_phone(text),
 
         "address": extract_address(text),
 
@@ -190,52 +172,28 @@ async def add_lead_message(
     user_id = update.message.from_user.id
 
 
-    # Split multiple leads by email occurrence
-    leads = re.split(
-        r'(?=[\w\.-]+@[\w\.-]+\.[A-Za-z]+)',
-        text
+    data = parse_lead(text)
+
+
+    add_lead(
+        user_id,
+        data["company"],
+        data["email"],
+        data["phone"],
+        data["address"],
+        data["reminder"],
+        data["note"]
     )
 
 
-    saved = 0
-
-
-    for lead_text in leads:
-
-        if not lead_text.strip():
-            continue
-
-
-        data = parse_lead(
-            lead_text
-        )
-
-
-        add_lead(
-            user_id,
-
-            data["company"],
-
-            data["contact"],
-
-            data["email"],
-
-            data["phone"],
-
-            data["address"],
-
-            data["reminder"],
-
-            data["note"]
-        )
-
-
-        saved += 1
-
-
-
     await update.message.reply_text(
-        f"✅ {saved} Lead(s) Saved"
+        f"✅ Lead Saved\n\n"
+        f"🏢 Company: {data['company']}\n"
+        f"📧 Email: {data['email']}\n"
+        f"📞 Phone: {data['phone']}\n"
+        f"📍 Address: {data['address']}\n"
+        f"⏰ Reminder: {data['reminder']}\n"
+        f"📝 Note: {data['note']}"
     )
 
 
@@ -244,9 +202,8 @@ def run_bot():
 
     create_database()
 
-
-    app = ApplicationBuilder() \
-        .token(TOKEN) \
+    app = ApplicationBuilder()\
+        .token(TOKEN)\
         .build()
 
 
@@ -259,7 +216,6 @@ def run_bot():
 
 
     print("Bot is running...")
-
 
     app.run_polling()
 

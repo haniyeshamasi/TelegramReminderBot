@@ -1,6 +1,6 @@
 import sqlite3
 
-DB_NAME = "leads_v4.db"
+DB_NAME = "leads_v5.db"
 
 
 def create_database():
@@ -13,7 +13,6 @@ def create_database():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
         company TEXT,
-        contact TEXT,
         email TEXT,
         phone TEXT,
         address TEXT,
@@ -31,7 +30,6 @@ def create_database():
 def add_lead(
     user_id,
     company,
-    contact,
     email,
     phone,
     address,
@@ -47,19 +45,17 @@ def add_lead(
     (
         user_id,
         company,
-        contact,
         email,
         phone,
         address,
         reminder,
         note
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     """,
     (
         user_id,
         company,
-        contact,
         email,
         phone,
         address,
