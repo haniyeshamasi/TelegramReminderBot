@@ -1,6 +1,6 @@
 import sqlite3
 
-DB_NAME = "leads_v5.db"
+DB_NAME = "leads.db"
 
 
 def create_database():
@@ -10,15 +10,27 @@ def create_database():
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS leads (
+
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+
         user_id INTEGER,
+
         company TEXT,
+
         email TEXT,
+
         phone TEXT,
+
         address TEXT,
+
         reminder TEXT,
+
+        reminder_date TEXT,
+
         note TEXT,
+
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+
     )
     """)
 
@@ -34,11 +46,14 @@ def add_lead(
     phone,
     address,
     reminder,
+    reminder_date,
     note
 ):
 
     conn = sqlite3.connect(DB_NAME)
+
     cursor = conn.cursor()
+
 
     cursor.execute("""
     INSERT INTO leads
@@ -49,9 +64,12 @@ def add_lead(
         phone,
         address,
         reminder,
+        reminder_date,
         note
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+
     """,
     (
         user_id,
@@ -60,8 +78,10 @@ def add_lead(
         phone,
         address,
         reminder,
+        reminder_date,
         note
     ))
+
 
     conn.commit()
     conn.close()
