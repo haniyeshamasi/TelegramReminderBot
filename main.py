@@ -3,6 +3,7 @@ import os
 import logging
 import threading
 
+from zoneinfo import ZoneInfo
 from datetime import datetime, timedelta, time
 from reminder import send_reminders
 from dotenv import load_dotenv
@@ -563,8 +564,9 @@ def run_bot():
     app.job_queue.run_daily(
         reminder_job,
         time=time(
-            hour=7,
-            minute=37
+            hour=9,
+            minute=0
+            tzinfo=ZoneInfo("America/Los_Angeles")
         )
     )
 
