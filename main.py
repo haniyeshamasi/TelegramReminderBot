@@ -563,8 +563,8 @@ def run_bot():
     app.job_queue.run_daily(
         reminder_job,
         time=time(
-            hour=9,
-            minute=0
+            hour=7,
+            minute=37
         )
     )
 
