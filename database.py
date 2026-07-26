@@ -1,9 +1,11 @@
+import sqlite3
+
+DB_NAME = "leads_final.db"
+
+
 def create_database():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-
-    cursor.execute("PRAGMA table_info(leads)")
-    print("BEFORE:", cursor.fetchall())
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS leads (
@@ -19,8 +21,29 @@ def create_database():
     )
     """)
 
-    cursor.execute("PRAGMA table_info(leads)")
-    print("AFTER:", cursor.fetchall())
+    conn.commit()
+    conn.close()
+
+
+def add_lead(user_id, company, contact, email, phone, status, note):
+
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    INSERT INTO leads
+    (user_id, company, contact, email, phone, status, note)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    """,
+    (
+        user_id,
+        company,
+        contact,
+        email,
+        phone,
+        status,
+        note
+    ))
 
     conn.commit()
     conn.close()
