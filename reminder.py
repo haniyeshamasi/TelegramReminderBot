@@ -3,13 +3,10 @@ import os
 
 from datetime import datetime
 
-from telegram import Bot
-
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 
 
 DB_NAME = "leads.db"
-
 
 TOKEN = os.getenv("BOT_TOKEN")
 
@@ -22,7 +19,6 @@ bot = Bot(
 
 def get_today_reminders():
 
-
     today = datetime.now().strftime("%Y-%m-%d")
 
 
@@ -34,6 +30,7 @@ def get_today_reminders():
     cursor.execute(
         """
         SELECT
+            id,
             company,
             email,
             phone,
@@ -45,6 +42,7 @@ def get_today_reminders():
         FROM leads
 
         WHERE reminder_date = ?
+        AND completed = 0
 
         """,
         (today,)
@@ -62,7 +60,6 @@ def get_today_reminders():
 
 
 
-
 async def send_reminders():
 
 
@@ -73,6 +70,7 @@ async def send_reminders():
 
 
         (
+            lead_id,
             company,
             email,
             phone,
@@ -109,33 +107,38 @@ async def send_reminders():
 
 
         keyboard = [
-    [
-        InlineKeyboardButton(
-            "✅ Done",
-            callback_data=f"done_{lead_id}"
+
+            [
+                InlineKeyboardButton(
+                    "✅ Done",
+                    callback_data=f"done_{lead_id}"
+                )
+            ],
+
+            [
+                InlineKeyboardButton(
+                    "⏰ Snooze",
+                    callback_data=f"snooze_{lead_id}"
+                )
+            ],
+
+            [
+                InlineKeyboardButton(
+                    "📅 Change Date",
+                    callback_data=f"date_{lead_id}"
+                )
+            ]
+
+        ]
+
+
+        reply_markup = InlineKeyboardMarkup(
+            keyboard
         )
-    ],
-    [
-        InlineKeyboardButton(
-            "⏰ Snooze",
-            callback_data=f"snooze_{lead_id}"
+
+
+        await bot.send_message(
+            chat_id=user_id,
+            text=message,
+            reply_markup=reply_markup
         )
-    ],
-    [
-        InlineKeyboardButton(
-            "📅 Change Date",
-            callback_data=f"date_{lead_id}"
-        )
-    ]
-]
-
-
-reply_markup = InlineKeyboardMarkup(keyboard)
-
-
-await bot.send_message(
-    chat_id=user_id,
-    text=message,
-    reply_markup=reply_markup
-)
-        
